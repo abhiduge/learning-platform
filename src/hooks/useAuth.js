@@ -2,13 +2,18 @@ import { useEffect } from 'react'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 
-async function fetchProfile(userId) {
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
-  return data
+async function fetchProfile(userId, retries = 3, delayMs = 400) {
+  for (let i = 0; i < retries; i++) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+    if (data) return data
+    // Profile may not be written yet (signup race) — wait and retry
+    if (i < retries - 1) await new Promise((r) => setTimeout(r, delayMs))
+  }
+  return null
 }
 
 export function useAuthListener() {

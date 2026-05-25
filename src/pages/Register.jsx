@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { registerTeen, registerParent } from '../hooks/useAuth'
+import { useAuthStore } from '../store/authStore'
 import { Button } from '../components/ui/Button'
 import { supabaseConfigured } from '../lib/supabase'
 
@@ -9,6 +10,7 @@ const STEPS = { ROLE: 'ROLE', TEEN_FORM: 'TEEN_FORM', PARENT_FORM: 'PARENT_FORM'
 
 export function Register() {
   const navigate = useNavigate()
+  const { setUser, setProfile } = useAuthStore()
   const [step, setStep] = useState(STEPS.ROLE)
   const [role, setRole] = useState(null)
   const [form, setForm] = useState({ displayName: '', email: '', password: '', ageConfirmed: false, inviteCode: '' })
@@ -29,13 +31,24 @@ export function Register() {
     if (!form.ageConfirmed) { setError('You must confirm you are 13 or older to register.'); return }
     setError('')
     setLoading(true)
-    const { inviteCode: code, error: err } = await registerTeen({
+    const { data, inviteCode: code, error: err } = await registerTeen({
       email: form.email,
       password: form.password,
       displayName: form.displayName,
     })
     setLoading(false)
     if (err) { setError(err.message); return }
+    // Set user + profile in store immediately so ProtectedRoute doesn't
+    // hit a null-profile blank screen before the auth listener catches up
+    if (data?.user) {
+      setUser(data.user)
+      setProfile({
+        id: data.user.id,
+        role: 'teen',
+        display_name: form.displayName,
+        invite_code: code,
+      })
+    }
     setInviteCode(code)
     setStep(STEPS.TEEN_INVITE)
   }
